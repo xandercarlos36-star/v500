@@ -205,8 +205,14 @@ class AIManager:
                 if self.providers.get('gemini', {}).get('available'):
                     try:
                         client = self.providers['gemini']['client']
+                        
+                        # Constrói prompt completo se system_prompt fornecido
+                        full_prompt = prompt
+                        if system_prompt:
+                            full_prompt = f"{system_prompt}\n\n{prompt}"
+                        
                         response = client.generate_content(
-                            prompt, 
+                            full_prompt, 
                             generation_config={"temperature": temperature, "max_output_tokens": min(max_tokens, 8192)},
                             safety_settings=[
                                 {"category": c, "threshold": "BLOCK_NONE"} 
@@ -238,7 +244,12 @@ class AIManager:
                     provider_info = self.providers.get(provider_name)
                     if provider_info and provider_info.get('available') and provider_info.get('client'):
                         try:
-                            content = self._call_provider(provider_name, prompt, max_tokens)
+                            # Constrói prompt completo para fallback
+                            full_prompt = prompt
+                            if system_prompt:
+                                full_prompt = f"{system_prompt}\n\n{prompt}"
+                            
+                            content = self._call_provider(provider_name, full_prompt, max_tokens)
                             if content:
                                 self._record_success(provider_name)
                                 return {
@@ -506,8 +517,10 @@ class AIManager:
 
     def generate_content(self, prompt: str, max_tokens: int = 1000, **kwargs) -> Optional[str]:
         """Método alias para compatibilidade"""
-        provider = kwargs.get('provider')
-        return self.generate_analysis(prompt, max_tokens, provider)
+        response = self.generate_response(prompt, max_tokens, **kwargs)
+        if response and response.get('success'):
+            return response.get('content')
+        return None
 
     # Método adicionado para compatibilidade com Mental Drivers Architect
     def gerar_resposta_inteligente(self, prompt: str, modelo_preferido: str = 'gemini', max_tentativas: int = 2) -> Dict[str, Any]:
